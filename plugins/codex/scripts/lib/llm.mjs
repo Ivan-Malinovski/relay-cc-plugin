@@ -6,7 +6,7 @@ import https from "node:https";
 import http from "node:http";
 import { URL } from "node:url";
 
-const PLUGIN_MANIFEST_URL = new URL("../../../.claude-plugin/plugin.json", import.meta.url);
+const PLUGIN_MANIFEST_URL = new URL("../../.claude-plugin/plugin.json", import.meta.url);
 const PLUGIN_MANIFEST = JSON.parse(await import("node:fs").then((fs) => fs.promises.readFile(PLUGIN_MANIFEST_URL, "utf8")));
 
 export const LLM_API_KEY_ENV = "LLM_API_KEY";
