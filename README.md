@@ -1,305 +1,144 @@
-# Codex plugin for Claude Code
+# LLM Connector for Claude Code
 
-Use Codex from inside Claude Code for code reviews or to delegate tasks to Codex.
+Use any LLM from inside Claude Code for code reviews or to delegate tasks.
 
-This plugin is for Claude Code users who want an easy way to start using Codex from the workflow
-they already have.
-
-<video src="./docs/plugin-demo.webm" controls muted playsinline autoplay></video>
+This is a fork of the [Codex plugin for Claude Code](https://github.com/openai/codex-plugin-cc) by OpenAI. Instead of requiring the Codex CLI, it makes direct REST API calls to any Anthropic-compatible or OpenAI-compatible LLM endpoint — so you can use providers like MiniMax, OpenAI, or any other API-compatible service alongside Claude.
 
 ## What You Get
 
-- `/codex:review` for a normal read-only Codex review
-- `/codex:adversarial-review` for a steerable challenge review
-- `/codex:rescue`, `/codex:status`, `/codex:result`, and `/codex:cancel` to delegate work and manage background jobs
+- `/llm:review` — read-only LLM review of your current changes
+- `/llm:adversarial-review` — steerable challenge review
+- `/llm:rescue`, `/llm:status`, `/llm:result`, `/llm:cancel` — delegate work and manage background jobs
+- `/llm:setup` — check and configure your LLM connection
 
 ## Requirements
 
-- **ChatGPT subscription (incl. Free) or OpenAI API key.**
-  - Usage will contribute to your Codex usage limits. [Learn more](https://developers.openai.com/codex/pricing).
+- **An API key for your chosen LLM provider**
+- **The provider's API endpoint URL**
 - **Node.js 18.18 or later**
+
+No Codex CLI, no ChatGPT subscription, no OpenAI account required.
 
 ## Install
 
-Add the marketplace in Claude Code:
+Add the plugin from your local checkout or marketplace:
 
 ```bash
-/plugin marketplace add openai/codex-plugin-cc
+/plugin install llm-connector
 ```
 
-Install the plugin:
+Then run setup:
 
 ```bash
-/plugin install codex@openai-codex
+/llm:setup
 ```
 
-Reload plugins:
+## Configuration
 
+Set these environment variables before starting Claude Code:
+
+| Variable | Required | Description |
+|---|---|---|
+| `LLM_API_KEY` | Yes | API key for your LLM provider |
+| `LLM_API_BASE_URL` | Yes | Provider endpoint (see examples below) |
+| `LLM_MODEL` | No | Model name (provider default if unset) |
+
+**Example — MiniMax:**
 ```bash
-/reload-plugins
+export LLM_API_KEY=your-key
+export LLM_API_BASE_URL=https://api.minimax.io/anthropic
+export LLM_MODEL=MiniMax-M2.7
 ```
 
-Then run:
-
+**Example — OpenAI:**
 ```bash
-/codex:setup
+export LLM_API_KEY=your-key
+export LLM_API_BASE_URL=https://api.openai.com
+export LLM_MODEL=gpt-4o
 ```
 
-`/codex:setup` will tell you whether Codex is ready. If Codex is missing and npm is available, it can offer to install Codex for you.
-
-If you prefer to install Codex yourself, use:
-
+**Example — Anthropic:**
 ```bash
-npm install -g @openai/codex
+export LLM_API_KEY=your-key
+export LLM_API_BASE_URL=https://api.anthropic.com
+export LLM_MODEL=claude-opus-4-6
 ```
 
-If Codex is installed but not logged in yet, run:
-
-```bash
-!codex login
-```
-
-After install, you should see:
-
-- the slash commands listed below
-- the `codex:codex-rescue` subagent in `/agents`
-
-One simple first run is:
-
-```bash
-/codex:review --background
-/codex:status
-/codex:result
-```
+The plugin auto-detects Anthropic-compatible endpoints (URLs containing `anthropic.com` or `/anthropic`) and uses the appropriate request format. All other endpoints are treated as OpenAI-compatible.
 
 ## Usage
 
-### `/codex:review`
+### `/llm:setup`
 
-Runs a normal Codex review on your current work. It gives you the same quality of code review as running `/review` inside Codex directly.
-
-> [!NOTE]
-> Code review especially for multi-file changes might take a while. It's generally recommended to run it in the background.
-
-Use it when you want:
-
-- a review of your current uncommitted changes
-- a review of your branch compared to a base branch like `main`
-
-Use `--base <ref>` for branch review. It also supports `--wait` and `--background`. It is not steerable and does not take custom focus text. Use [`/codex:adversarial-review`](#codexadversarial-review) when you want to challenge a specific decision or risk area.
-
-Examples:
+Checks whether your LLM is configured and ready.
 
 ```bash
-/codex:review
-/codex:review --base main
-/codex:review --background
+/llm:setup
+/llm:setup --enable-review-gate
+/llm:setup --disable-review-gate
 ```
 
-This command is read-only and will not perform any changes. When run in the background you can use [`/codex:status`](#codexstatus) to check on the progress and [`/codex:cancel`](#codexcancel) to cancel the ongoing task.
+### `/llm:review`
 
-### `/codex:adversarial-review`
-
-Runs a **steerable** review that questions the chosen implementation and design.
-
-It can be used to pressure-test assumptions, tradeoffs, failure modes, and whether a different approach would have been safer or simpler.
-
-It uses the same review target selection as `/codex:review`, including `--base <ref>` for branch review.
-It also supports `--wait` and `--background`. Unlike `/codex:review`, it can take extra focus text after the flags.
-
-Use it when you want:
-
-- a review before shipping that challenges the direction, not just the code details
-- review focused on design choices, tradeoffs, hidden assumptions, and alternative approaches
-- pressure-testing around specific risk areas like auth, data loss, rollback, race conditions, or reliability
-
-Examples:
+Runs a read-only LLM review of your current uncommitted changes or branch.
 
 ```bash
-/codex:adversarial-review
-/codex:adversarial-review --base main challenge whether this was the right caching and retry design
-/codex:adversarial-review --background look for race conditions and question the chosen approach
+/llm:review
+/llm:review --base main
+/llm:review --background
 ```
 
-This command is read-only. It does not fix code.
+### `/llm:adversarial-review`
 
-### `/codex:rescue`
-
-Hands a task to Codex through the `codex:codex-rescue` subagent.
-
-Use it when you want Codex to:
-
-- investigate a bug
-- try a fix
-- continue a previous Codex task
-- take a faster or cheaper pass with a smaller model
-
-> [!NOTE]
-> Depending on the task and the model you choose these tasks might take a long time and it's generally recommended to force the task to be in the background or move the agent to the background.
-
-It supports `--background`, `--wait`, `--resume`, and `--fresh`. If you omit `--resume` and `--fresh`, the plugin can offer to continue the latest rescue thread for this repo.
-
-Examples:
+Steerable review that challenges implementation decisions, tradeoffs, and risks.
 
 ```bash
-/codex:rescue investigate why the tests started failing
-/codex:rescue fix the failing test with the smallest safe patch
-/codex:rescue --resume apply the top fix from the last run
-/codex:rescue --model gpt-5.4-mini --effort medium investigate the flaky integration test
-/codex:rescue --model spark fix the issue quickly
-/codex:rescue --background investigate the regression
+/llm:adversarial-review
+/llm:adversarial-review --base main challenge the caching strategy
+/llm:adversarial-review --background look for race conditions
 ```
 
-You can also just ask for a task to be delegated to Codex:
+### `/llm:rescue`
 
-```text
-Ask Codex to redesign the database connection to be more resilient.
-```
-
-**Notes:**
-
-- if you do not pass `--model` or `--effort`, Codex chooses its own defaults.
-- if you say `spark`, the plugin maps that to `gpt-5.3-codex-spark`
-- follow-up rescue requests can continue the latest Codex task in the repo
-
-### `/codex:status`
-
-Shows running and recent Codex jobs for the current repository.
-
-Examples:
+Delegates a coding task to the LLM via the `codex:codex-rescue` subagent.
 
 ```bash
-/codex:status
-/codex:status task-abc123
+/llm:rescue investigate why the tests are failing
+/llm:rescue fix the failing test with the smallest safe patch
+/llm:rescue --resume apply the top fix from the last run
+/llm:rescue --background investigate the regression
 ```
 
-Use it to:
+### `/llm:status`, `/llm:result`, `/llm:cancel`
 
-- check progress on background work
-- see the latest completed job
-- confirm whether a task is still running
-
-### `/codex:result`
-
-Shows the final stored Codex output for a finished job.
-When available, it also includes the Codex session ID so you can reopen that run directly in Codex with `codex resume <session-id>`.
-
-Examples:
+Manage background jobs:
 
 ```bash
-/codex:result
-/codex:result task-abc123
+/llm:status
+/llm:result task-abc123
+/llm:cancel task-abc123
 ```
 
-### `/codex:cancel`
+## Changes from Upstream
 
-Cancels an active background Codex job.
+This fork replaces the Codex CLI runtime with a lightweight direct-API client:
 
-Examples:
+| Area | Upstream (openai/codex-plugin-cc) | This fork |
+|---|---|---|
+| Backend | Codex CLI (`@openai/codex`) | Direct REST API calls |
+| Auth | ChatGPT account or OpenAI API key | `LLM_API_KEY` env var |
+| Endpoint | OpenAI only | Any Anthropic- or OpenAI-compatible API |
+| Provider config | `~/.codex/config.toml` | `LLM_API_BASE_URL` + `LLM_MODEL` env vars |
+| Reasoning models | N/A | Handles `thinking` blocks before `text` blocks |
+| Commands | `/codex:*` | `/llm:*` |
 
-```bash
-/codex:cancel
-/codex:cancel task-abc123
-```
+Technical fixes applied to `llm.mjs`:
+- `isAnthropicCompatible()` detects both `anthropic.com` domains and `/anthropic` path prefixes
+- `buildEndpoint()` preserves the base URL path (e.g. `https://api.minimax.io/anthropic/v1/messages`)
+- Response parser searches for the `text`-type block rather than assuming `content[0]` is text
+- Default `maxTokens` set to 1024 for broad provider compatibility
 
-### `/codex:setup`
+## Credits
 
-Checks whether Codex is installed and authenticated.
-If Codex is missing and npm is available, it can offer to install Codex for you.
-
-You can also use `/codex:setup` to manage the optional review gate.
-
-#### Enabling review gate
-
-```bash
-/codex:setup --enable-review-gate
-/codex:setup --disable-review-gate
-```
-
-When the review gate is enabled, the plugin uses a `Stop` hook to run a targeted Codex review based on Claude's response. If that review finds issues, the stop is blocked so Claude can address them first.
-
-> [!WARNING]
-> The review gate can create a long-running Claude/Codex loop and may drain usage limits quickly. Only enable it when you plan to actively monitor the session.
-
-## Typical Flows
-
-### Review Before Shipping
-
-```bash
-/codex:review
-```
-
-### Hand A Problem To Codex
-
-```bash
-/codex:rescue investigate why the build is failing in CI
-```
-
-### Start Something Long-Running
-
-```bash
-/codex:adversarial-review --background
-/codex:rescue --background investigate the flaky test
-```
-
-Then check in with:
-
-```bash
-/codex:status
-/codex:result
-```
-
-## Codex Integration
-
-The Codex plugin wraps the [Codex app server](https://developers.openai.com/codex/app-server). It uses the global `codex` binary installed in your environment and [applies the same configuration](https://developers.openai.com/codex/config-basic).
-
-### Common Configurations
-
-If you want to change the default reasoning effort or the default model that gets used by the plugin, you can define that inside your user-level or project-level `config.toml`. For example to always use `gpt-5.4-mini` on `high` for a specific project you can add the following to a `.codex/config.toml` file at the root of the directory you started Claude in:
-
-```toml
-model = "gpt-5.4-mini"
-model_reasoning_effort = "xhigh"
-```
-
-Your configuration will be picked up based on:
-
-- user-level config in `~/.codex/config.toml`
-- project-level overrides in `.codex/config.toml`
-- project-level overrides only load when the [project is trusted](https://developers.openai.com/codex/config-advanced#project-config-files-codexconfigtoml)
-
-Check out the Codex docs for more [configuration options](https://developers.openai.com/codex/config-reference).
-
-### Moving The Work Over To Codex
-
-Delegated tasks and any [stop gate](#what-does-the-review-gate-do) run can also be directly resumed inside Codex by running `codex resume` either with the specific session ID you received from running `/codex:result` or `/codex:status` or by selecting it from the list.
-
-This way you can review the Codex work or continue the work there.
-
-## FAQ
-
-### Do I need a separate Codex account for this plugin?
-
-If you are already signed into Codex on this machine, that account should work immediately here too. This plugin uses your local Codex CLI authentication.
-
-If you only use Claude Code today and have not used Codex yet, you will also need to sign in to Codex with either a ChatGPT account or an API key. [Codex is available with your ChatGPT subscription](https://developers.openai.com/codex/pricing/), and [`codex login`](https://developers.openai.com/codex/cli/reference/#codex-login) supports both ChatGPT and API key sign-in. Run `/codex:setup` to check whether Codex is ready, and use `!codex login` if it is not.
-
-### Does the plugin use a separate Codex runtime?
-
-No. This plugin delegates through your local [Codex CLI](https://developers.openai.com/codex/cli/) and [Codex app server](https://developers.openai.com/codex/app-server/) on the same machine.
-
-That means:
-
-- it uses the same Codex install you would use directly
-- it uses the same local authentication state
-- it uses the same repository checkout and machine-local environment
-
-### Will it use the same Codex config I already have?
-
-Yes. If you already use Codex, the plugin picks up the same [configuration](#common-configurations).
-
-### Can I keep using my current API key or base URL setup?
-
-Yes. Because the plugin uses your local Codex CLI, your existing sign-in method and config still apply.
-
-If you need to point the built-in OpenAI provider at a different endpoint, set `openai_base_url` in your [Codex config](https://developers.openai.com/codex/config-advanced/#config-and-state-locations).
+Original plugin by **OpenAI** — [openai/codex-plugin-cc](https://github.com/openai/codex-plugin-cc).
+Licensed under the MIT License. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
