@@ -174,8 +174,8 @@ function buildSetupReport(cwd, actionsTaken = []) {
   const nextSteps = [];
   if (!llmStatus.available) {
     nextSteps.push("Set LLM_API_KEY environment variable with your API key.");
-    nextSteps.push("Optional: Set LLM_API_BASE_URL to use a different endpoint (defaults to api.anthropic.com).");
-    nextSteps.push("Optional: Set LLM_MODEL to use a specific model.");
+    nextSteps.push("Set LLM_API_BASE_URL to the endpoint of your LLM provider (e.g. https://api.minimax.io/anthropic).");
+    nextSteps.push("Optional: Set LLM_MODEL to specify the model (e.g. MiniMax-M2.7).");
   }
   if (!config.stopReviewGate) {
     nextSteps.push("Optional: run `/llm:setup --enable-review-gate` to require a fresh review before stop.");

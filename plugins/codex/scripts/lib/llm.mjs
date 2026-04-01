@@ -42,17 +42,17 @@ function parseResponse(body, contentType) {
 export class LLMClient {
   constructor(options = {}) {
     this.apiKey = options.apiKey ?? process.env[LLM_API_KEY_ENV] ?? null;
-    this.baseUrl = options.baseUrl ?? process.env[LLM_API_BASE_URL_ENV] ?? "https://api.anthropic.com";
-    this.model = options.model ?? process.env[LLM_MODEL_ENV] ?? "claude-sonnet-4-20250514";
+    this.baseUrl = options.baseUrl ?? process.env[LLM_API_BASE_URL_ENV] ?? null;
+    this.model = options.model ?? process.env[LLM_MODEL_ENV] ?? null;
     this.maxTokens = options.maxTokens ?? 2048;
   }
 
   isAnthropicCompatible() {
-    return this.baseUrl.includes("anthropic.com") || this.baseUrl.includes("/anthropic");
+    return Boolean(this.baseUrl?.includes("anthropic.com") || this.baseUrl?.includes("/anthropic"));
   }
 
   getAuthHeaders() {
-    if (this.baseUrl.includes("anthropic.com")) {
+    if (this.baseUrl?.includes("anthropic.com")) {
       return {
         "x-api-key": this.apiKey,
         "anthropic-version": "2023-06-01",
@@ -66,6 +66,7 @@ export class LLMClient {
   }
 
   buildEndpoint(relativePath) {
+    if (!this.baseUrl) throw createLLMError("LLM_API_BASE_URL is not configured.");
     const base = this.baseUrl.endsWith("/") ? this.baseUrl : this.baseUrl + "/";
     return new URL(relativePath, base).toString();
   }
@@ -254,12 +255,19 @@ export function getLLMAvailability() {
     };
   }
 
-  const baseUrl = process.env[LLM_API_BASE_URL_ENV] ?? "https://api.anthropic.com";
-  const model = process.env[LLM_MODEL_ENV] ?? "claude-sonnet-4-20250514";
+  const baseUrl = process.env[LLM_API_BASE_URL_ENV] ?? null;
+  const model = process.env[LLM_MODEL_ENV] ?? null;
+
+  if (!baseUrl) {
+    return {
+      available: false,
+      detail: "LLM_API_BASE_URL environment variable is not set"
+    };
+  }
 
   return {
     available: true,
-    detail: `Configured for ${baseUrl} with model ${model}`
+    detail: `Configured for ${baseUrl} with model ${model ?? "default"}`
   };
 }
 

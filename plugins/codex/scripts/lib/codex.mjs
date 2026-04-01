@@ -25,7 +25,7 @@ export function getSessionRuntimeStatus(env = process.env, cwd = process.cwd()) 
     return {
       mode: "direct",
       label: "configured",
-      detail: `LLM configured: ${baseUrl ?? "api.anthropic.com"} with ${model ?? "default model"}`,
+      detail: `LLM configured: ${baseUrl ?? "(no base URL)"} with ${model ?? "default model"}`,
       endpoint: baseUrl
     };
   }
